@@ -186,6 +186,7 @@ header h1 { font-family:'Playfair Display',serif; font-size:2.4rem; font-weight:
   <button class="tab" onclick="showSection('holdings',this)">Holdings</button>
   <button class="tab" onclick="showSection('performance',this)">Performance</button>
   <button class="tab" onclick="showSection('recommendations',this)">Recommandations</button>
+  <button class="tab" onclick="showSection('dividends',this)">Dividendes</button>
 </div>
 
 <div id="movers" class="section active">
@@ -298,6 +299,26 @@ header h1 { font-family:'Playfair Display',serif; font-size:2.4rem; font-weight:
   <div class="card fade-up" style="margin-top:24px;">
     <div class="card-title"><span class="dot" style="background:var(--red)"></span>Recommandations Prioritaires</div>
     <div class="rec-list" id="recList">&mdash;</div>
+  </div>
+</div>
+
+<div id="dividends" class="section">
+  <div class="grid-3 fade-up" style="margin-bottom:24px;">
+    <div class="kpi"><div class="kpi-label">Revenu Dividendes (est. annuel)</div><div class="kpi-value" id="divTotal">&mdash;</div><div class="kpi-sub" id="divYield">&mdash;</div></div>
+    <div class="kpi"><div class="kpi-label">Rendement Moyen</div><div class="kpi-value" id="divAvgYield">&mdash;</div><div class="kpi-sub">pond&eacute;r&eacute; par la valeur</div></div>
+    <div class="kpi"><div class="kpi-label">Prochain D&eacute;tachement</div><div class="kpi-value" id="divNext">&mdash;</div><div class="kpi-sub" id="divNextDetail">&mdash;</div></div>
+  </div>
+  <div class="card fade-up" style="margin-bottom:24px;">
+    <div class="card-title"><span class="dot" style="background:var(--green)"></span>Calendrier des Dividendes 2026</div>
+    <div id="divTimeline"></div>
+  </div>
+  <div class="card fade-up" style="margin-bottom:24px;">
+    <div class="card-title"><span class="dot" style="background:var(--accent)"></span>D&eacute;tail par Position</div>
+    <div style="overflow-x:auto;"><table class="holdings-table" id="divTable" style="width:100%;"></table></div>
+  </div>
+  <div class="card fade-up">
+    <div class="card-title"><span class="dot" style="background:var(--accent2)"></span>Revenus Mensuels Estim&eacute;s</div>
+    <div class="chart-container" style="height:250px;"><canvas id="divBarChart"></canvas></div>
   </div>
 </div>
 
@@ -483,6 +504,7 @@ function renderAll(data) {
   renderPerformance(data);
   renderRecommendations(data);
   renderMovers(data);
+  renderDividends(data);
 }
 
 // ============================================================
@@ -1140,6 +1162,177 @@ var insightsDB = {
   'TTE': {text: "TotalEnergies (+13% sur 1 mois) : r\u00e9sultats annuels solides, hausse du dividende annonc\u00e9e malgr\u00e9 la faiblesse du p\u00e9trole. Patrick Pouyannn\u00e9 souligne les investissements dans les \u00e9nergies renouvelables.", cat:'positive'},
   'MRN': {text: "Mersen (+22% sur 1 an) : CA 2025 quasi stable malgr\u00e9 un environnement difficile. Le march\u00e9 parie sur une revalorisation en 2026 avec la reprise cyclique des semi-conducteurs et du v\u00e9hicule \u00e9lectrique.", cat:'positive'}
 };
+
+// ============================================================
+// DIVIDENDES
+// ============================================================
+var dividendDB = {
+  'EPA:TTE': {name:'TotalEnergies', div:3.40, yield:5.28, freq:'trim.',
+    payments:[
+      {date:'2026-03-31',amount:0.85,type:'Acompte Q3',status:'confirm'},
+      {date:'2026-06-25',amount:0.85,type:'Solde',status:'proj'},
+      {date:'2026-10-01',amount:0.85,type:'Acompte Q1',status:'proj'},
+      {date:'2026-12-31',amount:0.85,type:'Acompte Q2',status:'proj'}
+    ]},
+  'EPA:BNP': {name:'BNP Paribas', div:5.16, yield:5.76, freq:'semi.',
+    payments:[
+      {date:'2026-05-18',amount:2.57,type:'Solde',status:'confirm'},
+      {date:'2026-09-30',amount:2.59,type:'Acompte S1',status:'proj'}
+    ]},
+  'EPA:AI': {name:'Air Liquide', div:3.30, yield:1.97, freq:'annuel',
+    payments:[{date:'2026-05-18',amount:3.30,type:'Annuel',status:'proj'}]},
+  'EPA:ORA': {name:'Orange', div:0.75, yield:4.37, freq:'semi.',
+    payments:[
+      {date:'2026-06-02',amount:0.45,type:'Solde',status:'proj'},
+      {date:'2026-12-02',amount:0.30,type:'Acompte',status:'proj'}
+    ]},
+  'EPA:CS': {name:'AXA', div:2.15, yield:5.53, freq:'annuel',
+    payments:[{date:'2026-05-04',amount:2.15,type:'Annuel',status:'proj'}]},
+  'EPA:RXL': {name:'Rexel', div:1.20, yield:4.2, freq:'annuel',
+    payments:[{date:'2026-05-14',amount:1.20,type:'Annuel',status:'proj'}]},
+  'EPA:GTT': {name:'GTT', div:4.56, yield:3.1, freq:'annuel',
+    payments:[{date:'2026-06-12',amount:4.56,type:'Annuel',status:'proj'}]},
+  'EPA:COV': {name:'Covivio', div:3.30, yield:5.8, freq:'annuel',
+    payments:[{date:'2026-04-27',amount:3.30,type:'Annuel',status:'proj'}]},
+  'EPA:CA': {name:'Carrefour', div:0.92, yield:6.5, freq:'annuel',
+    payments:[{date:'2026-06-01',amount:0.92,type:'Annuel',status:'proj'}]},
+  'EPA:STMPA': {name:'STMicro', div:0.36, yield:1.6, freq:'trim.',
+    payments:[
+      {date:'2026-03-17',amount:0.09,type:'Q4 2025',status:'confirm'},
+      {date:'2026-06-16',amount:0.09,type:'Q1 2026',status:'proj'},
+      {date:'2026-09-15',amount:0.09,type:'Q2 2026',status:'proj'},
+      {date:'2026-12-15',amount:0.09,type:'Q3 2026',status:'proj'}
+    ]},
+  'EPA:MC': {name:'LVMH', div:14.00, yield:1.9, freq:'semi.',
+    payments:[
+      {date:'2026-04-28',amount:7.00,type:'Acompte',status:'proj'},
+      {date:'2026-12-03',amount:7.00,type:'Solde',status:'proj'}
+    ]},
+  'EPA:TEP': {name:'Teleperformance', div:3.85, yield:4.0, freq:'annuel',
+    payments:[{date:'2026-04-16',amount:3.85,type:'Annuel',status:'proj'}]},
+  'EPA:PEUG': {name:'Peugeot Invest', div:3.25, yield:3.0, freq:'annuel',
+    payments:[{date:'2026-05-20',amount:3.25,type:'Annuel',status:'proj'}]},
+  'EPA:ENX': {name:'Euronext', div:3.58, yield:2.8, freq:'annuel',
+    payments:[{date:'2026-05-25',amount:3.58,type:'Annuel',status:'proj'}]},
+  'EPA:CDA': {name:'Compagnie des Alpes', div:0.85, yield:4.5, freq:'annuel',
+    payments:[{date:'2026-03-12',amount:0.85,type:'Annuel',status:'proj'}]},
+  'EPA:MRN': {name:'Mersen', div:1.25, yield:3.8, freq:'annuel',
+    payments:[{date:'2026-07-06',amount:1.25,type:'Annuel',status:'proj'}]},
+  'EPA:BIM': {name:'Biomerieux', div:0.90, yield:0.8, freq:'annuel',
+    payments:[{date:'2026-05-28',amount:0.90,type:'Annuel',status:'proj'}]},
+  'EPA:EQS': {name:'Equasens', div:1.10, yield:2.0, freq:'annuel',
+    payments:[{date:'2026-06-24',amount:1.10,type:'Annuel',status:'proj'}]}
+};
+
+function renderDividends(data) {
+  var h = data.holdings;
+  var today = new Date();
+  var todayStr = today.toISOString().slice(0,10);
+  var divPositions = [];
+  var totalDivRevenue = 0;
+  var weightedYield = 0;
+  var totalValueWithDiv = 0;
+  var allPayments = [];
+  var monthlyRevenue = [0,0,0,0,0,0,0,0,0,0,0,0];
+
+  for (var i=0; i<h.length; i++) {
+    var p = h[i];
+    var d = dividendDB[p.ticker];
+    if (!d) continue;
+    var annualRevenue = d.div * p.shares;
+    totalDivRevenue += annualRevenue;
+    totalValueWithDiv += p.value;
+    weightedYield += d.yield * p.value;
+    divPositions.push({name:p.name, ticker:p.ticker, shares:p.shares, value:p.value, divPerShare:d.div, annualRevenue:annualRevenue, yield:d.yield, freq:d.freq});
+    for (var j=0; j<d.payments.length; j++) {
+      var pay = d.payments[j];
+      var payAmount = pay.amount * p.shares;
+      var payMonth = parseInt(pay.date.slice(5,7)) - 1;
+      monthlyRevenue[payMonth] += payAmount;
+      allPayments.push({date:pay.date, name:p.name, ticker:p.ticker, amount:payAmount, perShare:pay.amount, type:pay.type, status:pay.status});
+    }
+  }
+  allPayments.sort(function(a,b){ return a.date < b.date ? -1 : 1; });
+
+  // KPIs
+  document.getElementById('divTotal').textContent = fmt(Math.round(totalDivRevenue));
+  document.getElementById('divYield').textContent = 'soit ~' + fmt(Math.round(totalDivRevenue/12)) + '/mois';
+  var avgY = totalValueWithDiv > 0 ? (weightedYield / totalValueWithDiv) : 0;
+  document.getElementById('divAvgYield').textContent = avgY.toFixed(1) + '%';
+
+  var nextPay = null;
+  for (var k=0; k<allPayments.length; k++) {
+    if (allPayments[k].date >= todayStr) { nextPay = allPayments[k]; break; }
+  }
+  if (nextPay) {
+    var nd = new Date(nextPay.date);
+    document.getElementById('divNext').textContent = nd.toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+    document.getElementById('divNextDetail').textContent = nextPay.name + ' (' + nextPay.type + ') ~' + fmt(Math.round(nextPay.amount));
+  }
+
+  // Timeline
+  var timeHtml = '';
+  var months = ['Jan','F\u00e9v','Mars','Avr','Mai','Juin','Juil','Ao\u00fbt','Sep','Oct','Nov','D\u00e9c'];
+  for (var m=0; m<12; m++) {
+    var mPayments = allPayments.filter(function(pp){ return parseInt(pp.date.slice(5,7))-1 === m; });
+    if (mPayments.length === 0) continue;
+    var isPast = m < today.getMonth();
+    timeHtml += '<div style="margin-bottom:16px;opacity:' + (isPast ? '0.5' : '1') + ';">';
+    timeHtml += '<div style="font-weight:600;font-size:0.9rem;margin-bottom:6px;color:var(--accent);">' + months[m] + ' 2026</div>';
+    for (var n=0; n<mPayments.length; n++) {
+      var mp = mPayments[n];
+      var statusBadge = mp.status === 'confirm'
+        ? '<span style="background:var(--green);color:#000;padding:1px 6px;border-radius:8px;font-size:0.65rem;font-weight:600;margin-left:6px;">CONFIRM\u00c9</span>'
+        : '<span style="background:var(--surface2);color:var(--text2);padding:1px 6px;border-radius:8px;font-size:0.65rem;margin-left:6px;">PROJECTION</span>';
+      var dd = new Date(mp.date);
+      timeHtml += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 12px;margin:3px 0;background:var(--surface2);border-radius:8px;font-size:0.82rem;">';
+      timeHtml += '<div><span style="font-weight:500;">' + mp.name + '</span> <span class="ticker">' + mp.type + '</span>' + statusBadge + '</div>';
+      timeHtml += '<div style="text-align:right;"><span style="font-weight:600;color:var(--green);">+' + fmt(Math.round(mp.amount)) + '</span><br><span style="font-size:0.7rem;color:var(--text2);">' + dd.toLocaleDateString('fr-FR') + ' | ' + mp.perShare.toFixed(2) + '\u20ac/action</span></div>';
+      timeHtml += '</div>';
+    }
+    timeHtml += '</div>';
+  }
+  document.getElementById('divTimeline').innerHTML = timeHtml;
+
+  // Detail table
+  divPositions.sort(function(a,b){ return b.annualRevenue - a.annualRevenue; });
+  var tHtml = '<thead><tr><th>Nom</th><th>Ticker</th><th>Qt\u00e9</th><th>Div/Action</th><th>Revenu Annuel</th><th>Rendement</th><th>Fr\u00e9quence</th></tr></thead><tbody>';
+  for (var t=0; t<divPositions.length; t++) {
+    var dp = divPositions[t];
+    tHtml += '<tr>'
+      + '<td style="font-weight:500;">' + dp.name + '</td>'
+      + '<td class="ticker">' + dp.ticker + '</td>'
+      + '<td>' + dp.shares + '</td>'
+      + '<td>' + dp.divPerShare.toFixed(2) + ' \u20ac</td>'
+      + '<td style="color:var(--green);font-weight:600;">' + fmt(Math.round(dp.annualRevenue)) + '</td>'
+      + '<td>' + dp.yield.toFixed(1) + '%</td>'
+      + '<td>' + dp.freq + '</td>'
+      + '</tr>';
+  }
+  tHtml += '</tbody>';
+  document.getElementById('divTable').innerHTML = tHtml;
+
+  // Monthly bar chart
+  destroyChart('divBar');
+  var barColors = monthlyRevenue.map(function(v,idx) {
+    return idx < today.getMonth() ? 'rgba(0,214,143,0.3)' : 'rgba(0,214,143,0.8)';
+  });
+  charts.divBar = new Chart(document.getElementById('divBarChart').getContext('2d'), {
+    type:'bar',
+    data:{
+      labels: months,
+      datasets:[{data: monthlyRevenue.map(function(v){ return Math.round(v); }), backgroundColor: barColors, borderRadius: 6, borderSkipped: false}]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{backgroundColor:'#1c2230', borderColor:'#262e3d', borderWidth:1, callbacks:{ label:function(c){ return fmt(c.raw); } }}},
+      scales:{
+        x:{grid:{display:false},ticks:{color:'#8893a7',font:{family:'DM Sans',size:11}}},
+        y:{grid:{color:'rgba(38,46,61,0.3)'},ticks:{color:'#8893a7',font:{family:'DM Sans',size:10},callback:function(v){return fmt(v);}}}
+      }
+    }
+  });
+}
 
 function renderMovers(data) {
   var h = data.holdings;
