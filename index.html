@@ -190,9 +190,9 @@ header h1 { font-family:'Playfair Display',serif; font-size:2.4rem; font-weight:
 </div>
 
 <div id="movers" class="section active">
-  <div class="insight-box fade-up">
-    <h3>&#128200; Contexte March&eacute; &mdash; 13 f&eacute;vrier 2026</h3>
-    <p>Le CAC 40 cl&ocirc;ture &agrave; 8 312 points (-0,35%). Semaine domin&eacute;e par les publications de r&eacute;sultats (Michelin, BNP, TotalEnergies, Safran, Hermès). Les march&eacute;s europ&eacute;ens r&eacute;sistent mieux que le Nasdaq, peu expos&eacute;s au doute croissant sur la rentabilit&eacute; de l'IA. Les tensions sur les droits de douane US restent un facteur de volatilit&eacute;.</p>
+  <div class="insight-box fade-up" id="marketContextBox">
+    <h3>&#128200; Contexte March&eacute;</h3>
+    <p id="marketContextText">Chargement du contexte march&eacute;...</p>
   </div>
   <div class="grid-2 fade-up">
     <div class="card">
@@ -499,6 +499,9 @@ function renderAll(data) {
   renderPnl('pnlMonth', 'pnlMonthPct', pnlMonth, totalVal);
   renderPnl('pnlYtd', 'pnlYtdPct', pnlYtd, totalVal);
 
+  // Update benchmarks and market context from live API data
+  updateBenchmarksFromAPI(data);
+
   renderCharts(data);
   renderTable(h);
   renderPerformance(data);
@@ -709,17 +712,54 @@ function onSortClick(key) {
 // ============================================================
 // PERFORMANCE with BENCHMARKS
 // ============================================================
-// Benchmark data: approximate % change since Dec 8, 2025
-// These are approximate index performances aligned to portfolio dates
-// CAC40 ~7520 on Dec 8 -> 8312 on Feb 13 = +10.5%
-// S&P500 ~6050 on Dec 8 -> 6836 on Feb 13 = +13.0%
-// Nasdaq100 ~21400 on Dec 8 -> 24886 on Feb 13 = +16.3%
+// Benchmark data: default fallback (approximate % since Dec 8, 2025)
+// These get REPLACED by live data from the API when available
 var benchmarkData = {
   labels: ['8 d\u00e9c','12 d\u00e9c','19 d\u00e9c','24 d\u00e9c','29 d\u00e9c','5 jan','9 jan','13 jan','16 jan','20 jan','26 jan','30 jan','2 f\u00e9v','6 f\u00e9v','10 f\u00e9v','13 f\u00e9v'],
   cac40:   [0, 0.8, 2.1, 3.2, 3.5, 4.2, 5.1, 6.8, 7.2, 6.5, 7.8, 8.4, 9.1, 9.6, 10.1, 10.5],
   sp500:   [0, 0.3, -0.5, 0.8, 1.2, 2.5, 3.1, 1.8, 2.6, 3.4, 3.0, 4.2, 8.5, 9.8, 11.2, 13.0],
   nasdaq:  [0, 0.5, -1.2, 0.2, 0.8, 3.8, 4.5, 2.1, 3.0, 4.2, 3.5, 5.0, 10.2, 12.5, 14.8, 16.3]
 };
+
+// Update benchmarks from live API data
+function updateBenchmarksFromAPI(data) {
+  if (!data.indexData) return;
+  var idx = data.indexData;
+
+  // Update market context
+  var ctxParts = [];
+  if (idx.cac40 && idx.cac40.price) {
+    var cacSign = idx.cac40.changePct >= 0 ? '+' : '';
+    ctxParts.push('CAC 40 : ' + Math.round(idx.cac40.price).toLocaleString('fr-FR') + ' pts (' + cacSign + idx.cac40.changePct.toFixed(2) + '%)');
+  }
+  if (idx.sp500 && idx.sp500.price) {
+    var spSign = idx.sp500.changePct >= 0 ? '+' : '';
+    ctxParts.push('S&P 500 : ' + Math.round(idx.sp500.price).toLocaleString('fr-FR') + ' (' + spSign + idx.sp500.changePct.toFixed(2) + '%)');
+  }
+  if (idx.nasdaq && idx.nasdaq.price) {
+    var nasSign = idx.nasdaq.changePct >= 0 ? '+' : '';
+    ctxParts.push('Nasdaq : ' + Math.round(idx.nasdaq.price).toLocaleString('fr-FR') + ' (' + nasSign + idx.nasdaq.changePct.toFixed(2) + '%)');
+  }
+
+  if (ctxParts.length > 0) {
+    var now = new Date();
+    var dateStr = now.toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+    document.querySelector('#marketContextBox h3').textContent = '\ud83d\udcc8 March\u00e9s \u2014 ' + dateStr;
+    document.getElementById('marketContextText').textContent = ctxParts.join(' | ');
+  }
+
+  // Update historical benchmark curves if available
+  if (idx.cac40 && idx.cac40.history && idx.cac40.history.pcts && idx.cac40.history.pcts.length > 2) {
+    benchmarkData.labels = idx.cac40.history.labels;
+    benchmarkData.cac40 = idx.cac40.history.pcts;
+  }
+  if (idx.sp500 && idx.sp500.history && idx.sp500.history.pcts && idx.sp500.history.pcts.length > 2) {
+    benchmarkData.sp500 = idx.sp500.history.pcts;
+  }
+  if (idx.nasdaq && idx.nasdaq.history && idx.nasdaq.history.pcts && idx.nasdaq.history.pcts.length > 2) {
+    benchmarkData.nasdaq = idx.nasdaq.history.pcts;
+  }
+}
 
 // Fallback portfolio % data (from spreadsheet evolution) if API has no perfHistory
 var fallbackPerfPct = [0, -0.85, 4.26, 4.38, 4.55, 6.76, 9.50, 28.39, 28.64, 25.74, 26.90, 28.22, 48.17, 48.93, 50.12, 48.88];
