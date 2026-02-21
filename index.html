@@ -187,6 +187,7 @@ header h1 { font-family:'Playfair Display',serif; font-size:2.4rem; font-weight:
   <button class="tab" onclick="showSection('performance',this)">Performance</button>
   <button class="tab" onclick="showSection('recommendations',this)">Recommandations</button>
   <button class="tab" onclick="showSection('dividends',this)">Dividendes</button>
+  <button class="tab" onclick="showSection('transactions',this)">Transactions</button>
 </div>
 
 <div id="movers" class="section active">
@@ -318,6 +319,23 @@ header h1 { font-family:'Playfair Display',serif; font-size:2.4rem; font-weight:
   <div class="card fade-up">
     <div class="card-title"><span class="dot" style="background:var(--accent2)"></span>Revenus Mensuels Estim&eacute;s</div>
     <div class="chart-container" style="height:250px;"><canvas id="divBarChart"></canvas></div>
+  </div>
+</div>
+
+<div id="transactions" class="section">
+  <div class="grid-3 fade-up" style="margin-bottom:24px;">
+    <div class="kpi"><div class="kpi-label">Total Investi</div><div class="kpi-value" id="txTotalInvested">&mdash;</div><div class="kpi-sub" id="txNbTrades">&mdash;</div></div>
+    <div class="kpi"><div class="kpi-label">Plus-Value Latente Totale</div><div class="kpi-value" id="txTotalPV">&mdash;</div><div class="kpi-sub" id="txTotalPVPct">&mdash;</div></div>
+    <div class="kpi"><div class="kpi-label">Frais Cumul&eacute;s</div><div class="kpi-value" id="txTotalFees">&mdash;</div><div class="kpi-sub">courtage total</div></div>
+  </div>
+  <div class="card fade-up" style="margin-bottom:24px;">
+    <div class="card-title"><span class="dot" style="background:var(--accent)"></span>PRU &amp; Plus-Value Latente par Ligne</div>
+    <div style="overflow-x:auto;"><table class="holdings-table" id="pruTable" style="width:100%;"></table></div>
+  </div>
+  <div class="card fade-up">
+    <div class="card-title"><span class="dot" style="background:var(--yellow)"></span>Journal des Transactions</div>
+    <div style="overflow-x:auto;"><table class="holdings-table" id="txJournal" style="width:100%;"></table></div>
+    <p style="font-size:0.72rem;color:var(--text2);margin-top:12px;">Ajoutez vos transactions dans l'onglet &laquo; Transactions &raquo; de votre Google Sheet. Le PRU est calcul&eacute; automatiquement.</p>
   </div>
 </div>
 
@@ -507,6 +525,7 @@ function renderAll(data) {
   renderRecommendations(data);
   renderMovers(data);
   renderDividends(data);
+  renderTransactions(data);
 }
 
 // ============================================================
@@ -1328,6 +1347,115 @@ var dividendDB = {
   'EPA:GWT': {name:'Amundi Europe Growth Dist', div:2.65, yield:1.3, freq:'annuel',
     payments:[{date:'2026-12-10',amount:2.65,type:'Annuel',status:'proj'}]}
 };
+
+// ============================================================
+// TRANSACTIONS & PRU
+// ============================================================
+function renderTransactions(data) {
+  var h = data.holdings;
+  var tx = data.transactions;
+  if (!tx || !tx.pru) tx = { trades: [], pru: {} };
+
+  var trades = tx.trades || [];
+  var pru = tx.pru || {};
+  var totalInvested = 0;
+  var totalFees = 0;
+  var totalCurrentValue = 0;
+  var pruRows = [];
+
+  // Build PRU table by matching holdings with PRU data
+  for (var i = 0; i < h.length; i++) {
+    var pos = h[i];
+    var p = pru[pos.ticker];
+    if (!p) continue;
+
+    var currentValue = pos.value;
+    var invested = p.totalInvested;
+    var pvLatente = currentValue - invested;
+    var pvPct = invested > 0 ? ((currentValue / invested) - 1) * 100 : 0;
+
+    totalInvested += invested;
+    totalCurrentValue += currentValue;
+
+    pruRows.push({
+      name: pos.name,
+      ticker: pos.ticker,
+      qty: p.qty,
+      pru: p.pru,
+      currentPrice: pos.price,
+      invested: invested,
+      currentValue: currentValue,
+      pvLatente: pvLatente,
+      pvPct: pvPct
+    });
+  }
+
+  // Sum fees
+  for (var f = 0; f < trades.length; f++) {
+    totalFees += trades[f].fees || 0;
+  }
+
+  var totalPV = totalCurrentValue - totalInvested;
+  var totalPVPct = totalInvested > 0 ? ((totalCurrentValue / totalInvested) - 1) * 100 : 0;
+
+  // KPIs
+  document.getElementById('txTotalInvested').textContent = fmt(Math.round(totalInvested));
+  document.getElementById('txNbTrades').textContent = trades.length + ' transactions';
+  var pvEl = document.getElementById('txTotalPV');
+  pvEl.textContent = (totalPV >= 0 ? '+' : '') + fmt(Math.round(totalPV));
+  pvEl.className = 'kpi-value ' + (totalPV >= 0 ? 'positive' : 'negative');
+  var pvPctEl = document.getElementById('txTotalPVPct');
+  pvPctEl.textContent = (totalPVPct >= 0 ? '+' : '') + totalPVPct.toFixed(1) + '%';
+  pvPctEl.className = 'kpi-sub ' + (totalPV >= 0 ? 'positive' : 'negative');
+  document.getElementById('txTotalFees').textContent = fmt(Math.round(totalFees));
+
+  // PRU Table
+  pruRows.sort(function(a, b) { return Math.abs(b.pvLatente) - Math.abs(a.pvLatente); });
+  var pruHtml = '<thead><tr><th>Nom</th><th>Ticker</th><th>Qt\u00e9</th><th>PRU</th><th>Cours</th><th>Investi</th><th>Valeur</th><th>+/- Value</th><th>%</th></tr></thead><tbody>';
+  for (var r = 0; r < pruRows.length; r++) {
+    var row = pruRows[r];
+    var pvClass = row.pvLatente >= 0 ? 'positive' : 'negative';
+    var pvSign = row.pvLatente >= 0 ? '+' : '';
+    pruHtml += '<tr>'
+      + '<td style="font-weight:500;">' + row.name + '</td>'
+      + '<td class="ticker">' + row.ticker + '</td>'
+      + '<td>' + row.qty.toFixed(2) + '</td>'
+      + '<td>' + row.pru.toFixed(2) + ' \u20ac</td>'
+      + '<td>' + row.currentPrice.toFixed(2) + ' \u20ac</td>'
+      + '<td>' + fmt(Math.round(row.invested)) + '</td>'
+      + '<td>' + fmt(Math.round(row.currentValue)) + '</td>'
+      + '<td class="' + pvClass + '" style="font-weight:600;">' + pvSign + fmt(Math.round(row.pvLatente)) + '</td>'
+      + '<td class="' + pvClass + '">' + pvSign + row.pvPct.toFixed(1) + '%</td>'
+      + '</tr>';
+  }
+  pruHtml += '</tbody>';
+  document.getElementById('pruTable').innerHTML = pruHtml;
+
+  // Journal table
+  var jHtml = '<thead><tr><th>Date</th><th>Type</th><th>Nom</th><th>Ticker</th><th>Qt\u00e9</th><th>Prix</th><th>Frais</th><th>Total</th><th>Enveloppe</th></tr></thead><tbody>';
+  // Show most recent first
+  var sortedTrades = trades.slice().sort(function(a, b) { return a.date > b.date ? -1 : 1; });
+  for (var j = 0; j < sortedTrades.length; j++) {
+    var t = sortedTrades[j];
+    var typeBadge = t.type === 'ACHAT'
+      ? '<span style="background:rgba(0,214,143,0.15);color:var(--green);padding:2px 8px;border-radius:6px;font-size:0.75rem;font-weight:600;">ACHAT</span>'
+      : '<span style="background:rgba(255,107,107,0.15);color:var(--red);padding:2px 8px;border-radius:6px;font-size:0.75rem;font-weight:600;">VENTE</span>';
+    var d = new Date(t.date);
+    jHtml += '<tr>'
+      + '<td>' + d.toLocaleDateString('fr-FR') + '</td>'
+      + '<td>' + typeBadge + '</td>'
+      + '<td style="font-weight:500;">' + t.name + '</td>'
+      + '<td class="ticker">' + t.ticker + '</td>'
+      + '<td>' + t.qty.toFixed(2) + '</td>'
+      + '<td>' + t.price.toFixed(2) + ' \u20ac</td>'
+      + '<td>' + t.fees.toFixed(2) + ' \u20ac</td>'
+      + '<td style="font-weight:500;">' + fmt(Math.round(t.total)) + '</td>'
+      + '<td><span style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:0.72rem;">' + t.envelope + '</span></td>'
+      + '</tr>';
+  }
+  jHtml += '</tbody>';
+  document.getElementById('txJournal').innerHTML = jHtml;
+}
 
 function renderDividends(data) {
   var h = data.holdings;
