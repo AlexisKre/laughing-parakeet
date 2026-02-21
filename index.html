@@ -245,8 +245,7 @@ header h1 { font-family:'Playfair Display',serif; font-size:2.4rem; font-weight:
   <div class="card fade-up" style="margin-bottom:24px;">
     <div class="card-title"><span class="dot" style="background:var(--green)"></span>&Eacute;volution de la Valeur (% depuis le 8 d&eacute;c. 2025)</div>
     <div style="display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap;">
-      <span style="display:flex;align-items:center;gap:5px;font-size:0.75rem;"><span style="width:12px;height:3px;background:#4f8cff;border-radius:2px;display:inline-block;"></span><span style="color:var(--text2)">Portefeuille (brut)</span></span>
-      <span style="display:flex;align-items:center;gap:5px;font-size:0.75rem;"><span style="width:12px;height:3px;background:#fff;border-radius:2px;display:inline-block;border:1px solid var(--text2);"></span><span style="color:var(--text2)">TWR (corrig&eacute; des apports)</span></span>
+      <span style="display:flex;align-items:center;gap:5px;font-size:0.75rem;"><span style="width:12px;height:3px;background:#4f8cff;border-radius:2px;display:inline-block;"></span><span style="color:var(--text2)">TWR (mon portefeuille)</span></span>
       <span style="display:flex;align-items:center;gap:5px;font-size:0.75rem;"><span style="width:12px;height:3px;background:#ffa94d;border-radius:2px;display:inline-block;"></span><span style="color:var(--text2)">CAC 40</span></span>
       <span style="display:flex;align-items:center;gap:5px;font-size:0.75rem;"><span style="width:12px;height:3px;background:#00d68f;border-radius:2px;display:inline-block;"></span><span style="color:var(--text2)">S&amp;P 500</span></span>
       <span style="display:flex;align-items:center;gap:5px;font-size:0.75rem;"><span style="width:12px;height:3px;background:#f472b6;border-radius:2px;display:inline-block;"></span><span style="color:var(--text2)">Nasdaq 100</span></span>
@@ -712,67 +711,104 @@ function onSortClick(key) {
 // ============================================================
 // PERFORMANCE with BENCHMARKS
 // ============================================================
-// Benchmark data: default fallback (approximate % since Dec 8, 2025)
+// Benchmark data: default fallback (% since Dec 8, 2025, based on real closing prices)
+// CAC40: 7520 on Dec 8 -> 8429 on Feb 18 = +12.1%
+// S&P500: 6050 on Dec 8 -> 6843 on Feb 18 = +13.1%
+// Nasdaq: 19900 on Dec 8 -> 22578 on Feb 18 = +13.5%
 // These get REPLACED by live data from the API when available
 var benchmarkData = {
-  labels: ['8 d\u00e9c','12 d\u00e9c','19 d\u00e9c','24 d\u00e9c','29 d\u00e9c','5 jan','9 jan','13 jan','16 jan','20 jan','26 jan','30 jan','2 f\u00e9v','6 f\u00e9v','10 f\u00e9v','13 f\u00e9v'],
-  cac40:   [0, 0.8, 2.1, 3.2, 3.5, 4.2, 5.1, 6.8, 7.2, 6.5, 7.8, 8.4, 9.1, 9.6, 10.1, 10.5],
-  sp500:   [0, 0.3, -0.5, 0.8, 1.2, 2.5, 3.1, 1.8, 2.6, 3.4, 3.0, 4.2, 8.5, 9.8, 11.2, 13.0],
-  nasdaq:  [0, 0.5, -1.2, 0.2, 0.8, 3.8, 4.5, 2.1, 3.0, 4.2, 3.5, 5.0, 10.2, 12.5, 14.8, 16.3]
+  labels: ['8 d\u00e9c','15 d\u00e9c','22 d\u00e9c','29 d\u00e9c','5 jan','12 jan','19 jan','26 jan','2 f\u00e9v','9 f\u00e9v','16 f\u00e9v','18 f\u00e9v'],
+  cac40:   [0, 1.5, 2.6, 3.0, 4.8, 8.5, 6.4, 7.6, 8.1, 9.7, 11.3, 12.1],
+  sp500:   [0, -0.3, -1.5, -0.8, 0.9, 2.5, 0.4, 2.4, 4.3, 6.2, 8.1, 13.1],
+  nasdaq:  [0, -0.7, -2.4, -1.5, 1.2, 3.8, 0.3, 2.5, 5.1, 6.8, 8.5, 13.5]
 };
 
 // Update benchmarks from live API data
 function updateBenchmarksFromAPI(data) {
-  if (!data.indexData) return;
-  var idx = data.indexData;
+  var now = new Date();
+  var dateStr = now.toLocaleDateString('fr-FR',{weekday:'long', day:'numeric', month:'long', year:'numeric'});
 
-  // Update market context
-  var ctxParts = [];
-  if (idx.cac40 && idx.cac40.price) {
-    var cacSign = idx.cac40.changePct >= 0 ? '+' : '';
-    ctxParts.push('CAC 40 : ' + Math.round(idx.cac40.price).toLocaleString('fr-FR') + ' pts (' + cacSign + idx.cac40.changePct.toFixed(2) + '%)');
-  }
-  if (idx.sp500 && idx.sp500.price) {
-    var spSign = idx.sp500.changePct >= 0 ? '+' : '';
-    ctxParts.push('S&P 500 : ' + Math.round(idx.sp500.price).toLocaleString('fr-FR') + ' (' + spSign + idx.sp500.changePct.toFixed(2) + '%)');
-  }
-  if (idx.nasdaq && idx.nasdaq.price) {
-    var nasSign = idx.nasdaq.changePct >= 0 ? '+' : '';
-    ctxParts.push('Nasdaq : ' + Math.round(idx.nasdaq.price).toLocaleString('fr-FR') + ' (' + nasSign + idx.nasdaq.changePct.toFixed(2) + '%)');
+  // If API provides indexData, use it
+  if (data.indexData) {
+    var idx = data.indexData;
+    var ctxParts = [];
+    if (idx.cac40 && idx.cac40.price) {
+      var cacSign = idx.cac40.changePct >= 0 ? '+' : '';
+      ctxParts.push('CAC 40 : ' + Math.round(idx.cac40.price).toLocaleString('fr-FR') + ' pts (' + cacSign + idx.cac40.changePct.toFixed(2) + '%)');
+    }
+    if (idx.sp500 && idx.sp500.price) {
+      var spSign = idx.sp500.changePct >= 0 ? '+' : '';
+      ctxParts.push('S&P 500 : ' + Math.round(idx.sp500.price).toLocaleString('fr-FR') + ' (' + spSign + idx.sp500.changePct.toFixed(2) + '%)');
+    }
+    if (idx.nasdaq && idx.nasdaq.price) {
+      var nasSign = idx.nasdaq.changePct >= 0 ? '+' : '';
+      ctxParts.push('Nasdaq : ' + Math.round(idx.nasdaq.price).toLocaleString('fr-FR') + ' (' + nasSign + idx.nasdaq.changePct.toFixed(2) + '%)');
+    }
+    if (ctxParts.length > 0) {
+      document.querySelector('#marketContextBox h3').textContent = '\ud83d\udcc8 March\u00e9s \u2014 ' + dateStr;
+      document.getElementById('marketContextText').textContent = ctxParts.join(' | ');
+    }
+    // Update historical curves
+    if (idx.cac40 && idx.cac40.history && idx.cac40.history.pcts && idx.cac40.history.pcts.length > 2) {
+      benchmarkData.labels = idx.cac40.history.labels;
+      benchmarkData.cac40 = idx.cac40.history.pcts;
+    }
+    if (idx.sp500 && idx.sp500.history && idx.sp500.history.pcts && idx.sp500.history.pcts.length > 2) {
+      benchmarkData.sp500 = idx.sp500.history.pcts;
+    }
+    if (idx.nasdaq && idx.nasdaq.history && idx.nasdaq.history.pcts && idx.nasdaq.history.pcts.length > 2) {
+      benchmarkData.nasdaq = idx.nasdaq.history.pcts;
+    }
   }
 
-  if (ctxParts.length > 0) {
-    var now = new Date();
-    var dateStr = now.toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
-    document.querySelector('#marketContextBox h3').textContent = '\ud83d\udcc8 March\u00e9s \u2014 ' + dateStr;
-    document.getElementById('marketContextText').textContent = ctxParts.join(' | ');
-  }
+  // Always generate a market context summary from holdings data
+  if (data.holdings && data.holdings.length > 0) {
+    var h = data.holdings;
+    var upCount = 0, downCount = 0;
+    var bestName = '', bestPct = -999;
+    var worstName = '', worstPct = 999;
+    for (var i = 0; i < h.length; i++) {
+      if (h[i].perf1d > 0) upCount++;
+      if (h[i].perf1d < 0) downCount++;
+      if (h[i].perf1d > bestPct) { bestPct = h[i].perf1d; bestName = h[i].name; }
+      if (h[i].perf1d < worstPct) { worstPct = h[i].perf1d; worstName = h[i].name; }
+    }
 
-  // Update historical benchmark curves if available
-  if (idx.cac40 && idx.cac40.history && idx.cac40.history.pcts && idx.cac40.history.pcts.length > 2) {
-    benchmarkData.labels = idx.cac40.history.labels;
-    benchmarkData.cac40 = idx.cac40.history.pcts;
-  }
-  if (idx.sp500 && idx.sp500.history && idx.sp500.history.pcts && idx.sp500.history.pcts.length > 2) {
-    benchmarkData.sp500 = idx.sp500.history.pcts;
-  }
-  if (idx.nasdaq && idx.nasdaq.history && idx.nasdaq.history.pcts && idx.nasdaq.history.pcts.length > 2) {
-    benchmarkData.nasdaq = idx.nasdaq.history.pcts;
+    var summary = '';
+    if (upCount > downCount) {
+      summary = 'S\u00e9ance globalement positive : ' + upCount + ' positions en hausse vs ' + downCount + ' en baisse.';
+    } else if (downCount > upCount) {
+      summary = 'S\u00e9ance difficile : ' + downCount + ' positions en baisse vs ' + upCount + ' en hausse.';
+    } else {
+      summary = 'S\u00e9ance mitig\u00e9e : ' + upCount + ' en hausse, ' + downCount + ' en baisse.';
+    }
+    if (bestPct > 0) summary += ' Meilleure perf : ' + bestName + ' (+' + (bestPct * 100).toFixed(1) + '%).';
+    if (worstPct < 0) summary += ' Plus forte baisse : ' + worstName + ' (' + (worstPct * 100).toFixed(1) + '%).';
+
+    // Only override if no API context was set
+    var ctxEl = document.getElementById('marketContextText');
+    if (!data.indexData) {
+      document.querySelector('#marketContextBox h3').textContent = '\ud83d\udcc8 Synth\u00e8se du jour \u2014 ' + dateStr;
+      ctxEl.textContent = summary;
+    } else {
+      // Append holdings summary below index context
+      ctxEl.textContent = ctxEl.textContent + ' \u2014 ' + summary;
+    }
   }
 }
 
 // Fallback portfolio % data (from spreadsheet evolution) if API has no perfHistory
-var fallbackPerfPct = [0, -0.85, 4.26, 4.38, 4.55, 6.76, 9.50, 28.39, 28.64, 25.74, 26.90, 28.22, 48.17, 48.93, 50.12, 48.88];
+// 12 weekly points from Dec 8 to Feb 18
+var fallbackPerfPct = [0, -0.85, 4.26, 4.55, 6.76, 28.39, 25.74, 26.90, 48.17, 50.12, 48.88, 49.50];
 
 // Fallback absolute portfolio values at each chart date point
-// (reconstructed from evolution data in the spreadsheet)
-var fallbackAbsValues = [33210, 32928, 34625, 34665, 34720, 35455, 36365, 42640, 42723, 41658, 42143, 42582, 49207, 49463, 49857, 49443];
+var fallbackAbsValues = [33210, 32928, 34625, 34720, 35455, 42640, 41658, 42143, 49207, 49857, 49443, 49650];
 
-// Corresponding dates for the 16 chart points (ISO format)
+// Corresponding dates for the 12 chart points (ISO format)
 var fallbackDates = [
-  '2025-12-08','2025-12-12','2025-12-19','2025-12-24','2025-12-29',
-  '2026-01-05','2026-01-09','2026-01-13','2026-01-16','2026-01-20',
-  '2026-01-26','2026-01-30','2026-02-02','2026-02-06','2026-02-10','2026-02-13'
+  '2025-12-08','2025-12-15','2025-12-22','2025-12-29',
+  '2026-01-05','2026-01-12','2026-01-19','2026-01-26',
+  '2026-02-02','2026-02-09','2026-02-16','2026-02-18'
 ];
 
 // ============================================================
@@ -931,8 +967,7 @@ function renderPerformance(data) {
   gradient.addColorStop(1,'rgba(79,140,255,0)');
 
   var datasets = [
-    { label:'Portefeuille (brut)', data:chartPortfolio, borderColor:'#4f8cff', backgroundColor:gradient, fill:true, tension:0.3, pointRadius:3, pointHoverRadius:6, borderWidth:2.5, pointBackgroundColor:'#4f8cff', pointBorderColor:'#151921', pointBorderWidth:2 },
-    { label:'TWR (corrig\u00e9)', data:twrCurve, borderColor:'#ffffff', borderWidth:2.5, tension:0.3, pointRadius:2, pointHoverRadius:5, pointBackgroundColor:'#ffffff', pointBorderColor:'#151921', pointBorderWidth:2, fill:false },
+    { label:'TWR (mon portefeuille)', data:twrCurve, borderColor:'#4f8cff', backgroundColor:gradient, fill:true, tension:0.3, pointRadius:3, pointHoverRadius:6, borderWidth:2.5, pointBackgroundColor:'#4f8cff', pointBorderColor:'#151921', pointBorderWidth:2 },
     { label:'CAC 40', data:cacArr, borderColor:'#ffa94d', borderWidth:1.5, tension:0.3, pointRadius:0, pointHoverRadius:4, borderDash:[6,3], fill:false },
     { label:'S&P 500', data:spArr, borderColor:'#00d68f', borderWidth:1.5, tension:0.3, pointRadius:0, pointHoverRadius:4, borderDash:[6,3], fill:false },
     { label:'Nasdaq 100', data:nasArr, borderColor:'#f472b6', borderWidth:1.5, tension:0.3, pointRadius:0, pointHoverRadius:4, borderDash:[6,3], fill:false }
@@ -1186,21 +1221,25 @@ function renderRecommendations(data) {
 // Explanations for key movers — keyed by ticker.
 // This is the section you update regularly with news context.
 var insightsDB = {
-  'ORA': {text: "Orange (+57% sur 1 an) b\u00e9n\u00e9ficie des rumeurs de consolidation t\u00e9l\u00e9coms en France (rachat possible de SFR avec Bouygues et Free), d'un profil d\u00e9fensif appr\u00e9ci\u00e9 face aux tarifs US, et de la mont\u00e9e \u00e0 100% dans MasOrange (Espagne) pour 4,25 Mds\u20ac. Journ\u00e9e investisseurs le 19 f\u00e9vrier.", cat:'positive'},
-  'CDA': {text: "Compagnie des Alpes (+69% sur 1 an) profite d'un excellent exercice 2024/25 port\u00e9 par une fr\u00e9quentation record dans ses domaines skiables et parcs de loisirs, ainsi que des perspectives favorables pour la saison hiver 2025/26.", cat:'positive'},
-  'GTT': {text: "GTT (+33% sur 1 an) : CA en hausse de 29% sur 9 mois, objectifs 2025 relev\u00e9s. Le carnet de commandes reste solide avec la forte demande en m\u00e9thaniers. Nouveau DG nomm\u00e9 en janvier 2026. R\u00e9sultats T4 attendus le 19 f\u00e9vrier.", cat:'positive'},
-  'RXL': {text: "Rexel (+37% sur 1 an) : r\u00e9sultat net 2025 en hausse de 73%, port\u00e9 par l'\u00e9lectrification et la transition \u00e9nerg\u00e9tique. Dividende maintenu \u00e0 1,20\u20ac. Objectifs 2026 : croissance des ventes de 3-5%.", cat:'positive'},
-  'BNP': {text: "BNP Paribas (+28% sur 1 an) : r\u00e9sultat net record au T4 2025, d\u00e9passant les attentes. Le groupe annonce des r\u00e9ductions de co\u00fbts pour atteindre les objectifs 2028 et investit dans l'IA.", cat:'positive'},
-  'IDVA': {text: "iShares EURO STOXX Select Div 30 (+32% sur 1 an) : l'ETF dividendes europ\u00e9ens b\u00e9n\u00e9ficie de la rotation vers les valeurs de rendement dans un contexte de doute sur la tech US.", cat:'positive'},
-  'TEP': {text: "Teleperformance (-48% sur 1 an) reste sous pression, au plus bas depuis 2014. L'IA g\u00e9n\u00e9rative menace son mod\u00e8le d'externalisation de la relation client. R\u00e9sultats annuels le 26 f\u00e9vrier \u2014 moment cl\u00e9. Goldman Sachs a franchi 5% des droits de vote.", cat:'negative'},
-  'ALCAT': {text: "Catana Group (-45% sur 1 an) : le constructeur de catamarans souffre d'un ralentissement du march\u00e9 nautique de plaisance et d'un environnement de taux d\u00e9favorable pour les achats discr\u00e9tionnaires.", cat:'negative'},
-  'MC': {text: "LVMH (-27% sur 1 an) : le g\u00e9ant du luxe p\u00e2tit du ralentissement en Chine et de la normalisation post-Covid des d\u00e9penses de luxe. Kering a cependant rebondi r\u00e9cemment (+11% en une journ\u00e9e), ce qui pourrait signaler un plancher sectoriel.", cat:'negative'},
-  'BIM': {text: "Biom\u00e9rieux (-20% sur 1 an) : apr\u00e8s une p\u00e9riode faste li\u00e9e au Covid, le sp\u00e9cialiste du diagnostic in vitro fait face \u00e0 une normalisation de la demande et \u00e0 des pressions sur les marges.", cat:'negative'},
-  'TNOW': {text: "Amundi World IT (-7% sur 1 mois) : l'ETF tech mondial subit les doutes sur la rentabilit\u00e9 de l'IA apr\u00e8s les r\u00e9sultats mitig\u00e9s de certains acteurs. Le Nasdaq sous-performe nettement l'Europe.", cat:'negative'},
-  'STMPA': {text: "STMicroelectronics (+23% sur 1 an mais volatile) : les r\u00e9sultats annuels publi\u00e9s r\u00e9cemment ont rassur\u00e9 le march\u00e9, avec une stabilisation apr\u00e8s une ann\u00e9e difficile li\u00e9e au cycle semi-conducteurs.", cat:'neutral'},
-  'CS': {text: "AXA (-5% sur 1 mois) : le titre d\u00e9croche dans un mouvement de profit-taking apr\u00e8s une belle ann\u00e9e 2025, dans un contexte de volatilit\u00e9 accrue sur les financi\u00e8res.", cat:'negative'},
-  'TTE': {text: "TotalEnergies (+13% sur 1 mois) : r\u00e9sultats annuels solides, hausse du dividende annonc\u00e9e malgr\u00e9 la faiblesse du p\u00e9trole. Patrick Pouyannn\u00e9 souligne les investissements dans les \u00e9nergies renouvelables.", cat:'positive'},
-  'MRN': {text: "Mersen (+22% sur 1 an) : CA 2025 quasi stable malgr\u00e9 un environnement difficile. Le march\u00e9 parie sur une revalorisation en 2026 avec la reprise cyclique des semi-conducteurs et du v\u00e9hicule \u00e9lectrique.", cat:'positive'}
+  'EPA:ORA': {text: "Orange (+57% sur 1 an) b\u00e9n\u00e9ficie des rumeurs de consolidation t\u00e9l\u00e9coms en France (rachat possible de SFR avec Bouygues et Free), d'un profil d\u00e9fensif appr\u00e9ci\u00e9 face aux tarifs US, et de la mont\u00e9e \u00e0 100% dans MasOrange (Espagne) pour 4,25 Mds\u20ac. Journ\u00e9e investisseurs le 19 f\u00e9vrier.", cat:'positive'},
+  'EPA:CDA': {text: "Compagnie des Alpes (+69% sur 1 an) profite d'un excellent exercice 2024/25 port\u00e9 par une fr\u00e9quentation record dans ses domaines skiables et parcs de loisirs, ainsi que des perspectives favorables pour la saison hiver 2025/26.", cat:'positive'},
+  'EPA:GTT': {text: "GTT (+33% sur 1 an) : CA en hausse de 29% sur 9 mois, objectifs 2025 relev\u00e9s. Le carnet de commandes reste solide avec la forte demande en m\u00e9thaniers. Nouveau DG nomm\u00e9 en janvier 2026. R\u00e9sultats T4 attendus le 19 f\u00e9vrier.", cat:'positive'},
+  'EPA:RXL': {text: "Rexel (+37% sur 1 an) : r\u00e9sultat net 2025 en hausse de 73%, port\u00e9 par l'\u00e9lectrification et la transition \u00e9nerg\u00e9tique. Dividende maintenu \u00e0 1,20\u20ac. Objectifs 2026 : croissance des ventes de 3-5%.", cat:'positive'},
+  'EPA:BNP': {text: "BNP Paribas (+28% sur 1 an) : r\u00e9sultat net record au T4 2025, d\u00e9passant les attentes. Le groupe annonce des r\u00e9ductions de co\u00fbts pour atteindre les objectifs 2028 et investit dans l'IA.", cat:'positive'},
+  'AMS:IDVA': {text: "iShares EURO STOXX Select Div 30 (+32% sur 1 an) : l'ETF dividendes europ\u00e9ens b\u00e9n\u00e9ficie de la rotation vers les valeurs de rendement dans un contexte de doute sur la tech US.", cat:'positive'},
+  'EPA:TEP': {text: "Teleperformance (-48% sur 1 an) reste sous pression, au plus bas depuis 2014. L'IA g\u00e9n\u00e9rative menace son mod\u00e8le d'externalisation de la relation client. R\u00e9sultats annuels le 26 f\u00e9vrier \u2014 moment cl\u00e9. Goldman Sachs a franchi 5% des droits de vote.", cat:'negative'},
+  'EPA:ALCAT': {text: "Catana Group (-45% sur 1 an) : le constructeur de catamarans souffre d'un ralentissement du march\u00e9 nautique de plaisance et d'un environnement de taux d\u00e9favorable pour les achats discr\u00e9tionnaires.", cat:'negative'},
+  'EPA:MC': {text: "LVMH (-27% sur 1 an) : le g\u00e9ant du luxe p\u00e2tit du ralentissement en Chine et de la normalisation post-Covid des d\u00e9penses de luxe. Kering a cependant rebondi r\u00e9cemment (+11% en une journ\u00e9e), ce qui pourrait signaler un plancher sectoriel.", cat:'negative'},
+  'EPA:BIM': {text: "Biom\u00e9rieux (-20% sur 1 an) : apr\u00e8s une p\u00e9riode faste li\u00e9e au Covid, le sp\u00e9cialiste du diagnostic in vitro fait face \u00e0 une normalisation de la demande et \u00e0 des pressions sur les marges.", cat:'negative'},
+  'EPA:TNOW': {text: "Amundi World IT (-7% sur 1 mois) : l'ETF tech mondial subit les doutes sur la rentabilit\u00e9 de l'IA apr\u00e8s les r\u00e9sultats mitig\u00e9s de certains acteurs. Le Nasdaq sous-performe nettement l'Europe.", cat:'negative'},
+  'EPA:STMPA': {text: "STMicroelectronics (+23% sur 1 an mais volatile) : les r\u00e9sultats annuels publi\u00e9s r\u00e9cemment ont rassur\u00e9 le march\u00e9, avec une stabilisation apr\u00e8s une ann\u00e9e difficile li\u00e9e au cycle semi-conducteurs.", cat:'neutral'},
+  'EPA:CS': {text: "AXA (-5% sur 1 mois) : le titre d\u00e9croche dans un mouvement de profit-taking apr\u00e8s une belle ann\u00e9e 2025, dans un contexte de volatilit\u00e9 accrue sur les financi\u00e8res.", cat:'negative'},
+  'EPA:TTE': {text: "TotalEnergies (+13% sur 1 mois) : r\u00e9sultats annuels solides, hausse du dividende annonc\u00e9e malgr\u00e9 la faiblesse du p\u00e9trole. Patrick Pouyann\u00e9 souligne les investissements dans les \u00e9nergies renouvelables.", cat:'positive'},
+  'EPA:MRN': {text: "Mersen (+22% sur 1 an) : CA 2025 quasi stable malgr\u00e9 un environnement difficile. Le march\u00e9 parie sur une revalorisation en 2026 avec la reprise cyclique des semi-conducteurs et du v\u00e9hicule \u00e9lectrique.", cat:'positive'},
+  'EPA:CA': {text: "Carrefour (-5% le 18 f\u00e9v) : nouveau plan strat\u00e9gique 2026-2030 d\u00e9voil\u00e9, mais la r\u00e9action des investisseurs est froide. Recentrage sur France/Br\u00e9sil/Espagne. Objectif marge op\u00e9rationnelle 3,5% en 2030.", cat:'negative'},
+  'EPA:AI': {text: "Air Liquide (stable) : le titre stagne depuis f\u00e9vrier 2024 malgr\u00e9 des fondamentaux solides. Valorisation tendue (PER 28x) dans un contexte de taux encore \u00e9lev\u00e9s.", cat:'neutral'},
+  'EPA:COV': {text: "Covivio : la fonci\u00e8re profite du pivot de la BCE vers des baisses de taux, soutenant les valorisations immobili\u00e8res europ\u00e9ennes.", cat:'positive'},
+  'EPA:ENX': {text: "Euronext : b\u00e9n\u00e9ficie de volumes d'\u00e9changes \u00e9lev\u00e9s gr\u00e2ce \u00e0 la volatilit\u00e9 li\u00e9e aux tarifs US et aux r\u00e9sultats d'entreprises.", cat:'positive'}
 };
 
 // ============================================================
