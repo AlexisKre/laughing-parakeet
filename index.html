@@ -188,6 +188,7 @@ header h1 { font-family:'Playfair Display',serif; font-size:2.4rem; font-weight:
   <button class="tab" onclick="showSection('recommendations',this)">Recommandations</button>
   <button class="tab" onclick="showSection('dividends',this)">Dividendes</button>
   <button class="tab" onclick="showSection('transactions',this)">Transactions</button>
+  <button class="tab" onclick="showSection('earnings',this)">R&eacute;sultats</button>
 </div>
 
 <div id="movers" class="section active">
@@ -336,6 +337,27 @@ header h1 { font-family:'Playfair Display',serif; font-size:2.4rem; font-weight:
     <div class="card-title"><span class="dot" style="background:var(--yellow)"></span>Journal des Transactions</div>
     <div style="overflow-x:auto;"><table class="holdings-table" id="txJournal" style="width:100%;"></table></div>
     <p style="font-size:0.72rem;color:var(--text2);margin-top:12px;">Ajoutez vos transactions dans l'onglet &laquo; Transactions &raquo; de votre Google Sheet. Le PRU est calcul&eacute; automatiquement.</p>
+  </div>
+</div>
+
+<div id="earnings" class="section">
+  <div class="grid-3 fade-up" style="margin-bottom:24px;">
+    <div class="kpi"><div class="kpi-label">Prochain &Eacute;v&eacute;nement</div><div class="kpi-value" id="erNext">&mdash;</div><div class="kpi-sub" id="erNextDate">&mdash;</div></div>
+    <div class="kpi"><div class="kpi-label">&Eacute;v&eacute;nements ce Mois</div><div class="kpi-value" id="erThisMonth">&mdash;</div><div class="kpi-sub" id="erThisMonthLabel">&mdash;</div></div>
+    <div class="kpi"><div class="kpi-label">&Eacute;v&eacute;nements &agrave; Venir</div><div class="kpi-value" id="erRemaining">&mdash;</div><div class="kpi-sub">sur le reste de 2026</div></div>
+  </div>
+  <div class="card fade-up" style="margin-bottom:24px;">
+    <div class="card-title"><span class="dot" style="background:var(--accent)"></span>Prochaines Publications <span style="font-size:0.72rem;color:var(--text2);font-weight:400;margin-left:8px;" id="erCountdown"></span></div>
+    <div id="erUpcoming" style="display:flex;flex-direction:column;gap:8px;"></div>
+  </div>
+  <div class="card fade-up" style="margin-bottom:24px;">
+    <div class="card-title"><span class="dot" style="background:var(--yellow)"></span>Calendrier Annuel 2026</div>
+    <div id="erTimeline" style="overflow-x:auto;"></div>
+  </div>
+  <div class="card fade-up">
+    <div class="card-title"><span class="dot" style="background:var(--accent2)"></span>Historique Complet</div>
+    <div style="overflow-x:auto;"><table class="holdings-table" id="erTable" style="width:100%;"></table></div>
+    <p style="font-size:0.72rem;color:var(--text2);margin-top:12px;">Donn&eacute;es lues depuis l'onglet &laquo; Calendrier R&eacute;sultats &raquo; de votre Google Sheet. Mettez &agrave; jour les dates au fil des annonces officielles.</p>
   </div>
 </div>
 
@@ -526,7 +548,7 @@ function renderAll(data) {
   renderMovers(data);
   renderDividends(data);
   renderTransactions(data);
-}
+  renderEarnings(data);}
 
 // ============================================================
 // CHARTS
@@ -1351,6 +1373,232 @@ var dividendDB = {
 // ============================================================
 // TRANSACTIONS & PRU
 // ============================================================
+// ============================================================
+// EARNINGS CALENDAR
+// ============================================================
+function renderEarnings(data) {
+  var events = (data.earningsCalendar || []).slice();
+  if (!events.length) {
+    // Fallback: use hardcoded calendar if Sheet tab not yet created
+    events = getDefaultEarningsCalendar();
+  }
+
+  var now = new Date();
+  var todayStr = now.getFullYear() + '-' + pad2(now.getMonth()+1) + '-' + pad2(now.getDate());
+  var monthNames = ['Janvier','F\u00e9vrier','Mars','Avril','Mai','Juin','Juillet','Ao\u00fbt','Septembre','Octobre','Novembre','D\u00e9cembre'];
+
+  // Separate past / upcoming
+  var upcoming = [];
+  var past = [];
+  var thisMonthCount = 0;
+  var thisMonth = now.getMonth();
+  var thisYear = now.getFullYear();
+
+  for (var i = 0; i < events.length; i++) {
+    var ev = events[i];
+    var ed = new Date(ev.date);
+    if (isNaN(ed.getTime())) continue;
+    ev._d = ed;
+    if (ev.date >= todayStr) {
+      upcoming.push(ev);
+    } else {
+      past.push(ev);
+    }
+    if (ed.getMonth() === thisMonth && ed.getFullYear() === thisYear) thisMonthCount++;
+  }
+  upcoming.sort(function(a,b){ return a.date < b.date ? -1 : 1; });
+  past.sort(function(a,b){ return a.date > b.date ? -1 : 1; });
+
+  // KPIs
+  if (upcoming.length > 0) {
+    var nxt = upcoming[0];
+    document.getElementById('erNext').textContent = nxt.company;
+    var nd = new Date(nxt.date);
+    var daysUntil = Math.ceil((nd - now) / 86400000);
+    var dateLabel = nd.toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long'});
+    document.getElementById('erNextDate').textContent = dateLabel + (daysUntil <= 7 ? ' (J-' + daysUntil + ')' : '');
+    if (daysUntil <= 3) {
+      document.getElementById('erNextDate').className = 'kpi-sub negative';
+    }
+  }
+  document.getElementById('erThisMonth').textContent = thisMonthCount;
+  document.getElementById('erThisMonthLabel').textContent = monthNames[thisMonth] + ' ' + thisYear;
+  document.getElementById('erRemaining').textContent = upcoming.length;
+
+  // Countdown for next event
+  if (upcoming.length > 0) {
+    var nxtD = new Date(upcoming[0].date);
+    var diff = Math.ceil((nxtD - now) / 86400000);
+    var ctEl = document.getElementById('erCountdown');
+    if (diff === 0) ctEl.textContent = "AUJOURD'HUI";
+    else if (diff === 1) ctEl.textContent = 'DEMAIN';
+    else if (diff <= 7) ctEl.textContent = 'dans ' + diff + ' jours';
+    else ctEl.textContent = '';
+  }
+
+  // Upcoming cards (next 8)
+  var upHtml = '';
+  var shown = Math.min(upcoming.length, 8);
+  for (var u = 0; u < shown; u++) {
+    var ev = upcoming[u];
+    var ed = new Date(ev.date);
+    var dayN = ed.getDate();
+    var monthShort = monthNames[ed.getMonth()].substring(0,3).toUpperCase();
+    var dow = ed.toLocaleDateString('fr-FR', {weekday:'short'});
+    var diff = Math.ceil((ed - now) / 86400000);
+    var urgency = '';
+    if (diff <= 1) urgency = 'background:rgba(255,107,107,0.15);border-left:3px solid var(--red);';
+    else if (diff <= 7) urgency = 'background:rgba(167,139,250,0.1);border-left:3px solid #A78BFA;';
+    else urgency = 'background:var(--surface2);border-left:3px solid var(--border);';
+
+    var typeBadge = '';
+    var tp = (ev.type || '').toLowerCase();
+    if (tp.indexOf('annuel') >= 0) typeBadge = '<span style="background:rgba(79,140,255,0.15);color:var(--accent);padding:2px 8px;border-radius:6px;font-size:0.7rem;font-weight:600;">ANNUEL</span>';
+    else if (tp.indexOf('semestr') >= 0) typeBadge = '<span style="background:rgba(167,139,250,0.15);color:#A78BFA;padding:2px 8px;border-radius:6px;font-size:0.7rem;font-weight:600;">SEMESTRIEL</span>';
+    else if (tp.indexOf('trimestr') >= 0) typeBadge = '<span style="background:rgba(0,214,143,0.15);color:var(--green);padding:2px 8px;border-radius:6px;font-size:0.7rem;font-weight:600;">TRIMESTRIEL</span>';
+    else if (tp.indexOf('trading') >= 0 || tp.indexOf('ca ') >= 0) typeBadge = '<span style="background:rgba(251,191,36,0.15);color:var(--yellow);padding:2px 8px;border-radius:6px;font-size:0.7rem;font-weight:600;">CA / TRADING</span>';
+    else if (tp.indexOf('ag') >= 0) typeBadge = '<span style="background:rgba(255,255,255,0.08);color:var(--text2);padding:2px 8px;border-radius:6px;font-size:0.7rem;font-weight:600;">AG</span>';
+    else typeBadge = '<span style="background:var(--surface2);color:var(--text2);padding:2px 8px;border-radius:6px;font-size:0.7rem;">' + ev.type + '</span>';
+
+    upHtml += '<div style="display:flex;align-items:center;gap:16px;padding:12px 16px;border-radius:10px;' + urgency + '">';
+    upHtml += '<div style="text-align:center;min-width:48px;"><div style="font-size:1.4rem;font-weight:700;color:var(--text1);line-height:1;">' + dayN + '</div><div style="font-size:0.65rem;color:var(--text2);text-transform:uppercase;">' + monthShort + '</div><div style="font-size:0.6rem;color:var(--text2);">' + dow + '</div></div>';
+    upHtml += '<div style="flex:1;min-width:0;"><div style="font-weight:600;color:var(--text1);margin-bottom:2px;">' + ev.company + ' <span style="font-weight:400;color:var(--text2);font-size:0.78rem;">' + (ev.period || '') + '</span></div>';
+    upHtml += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' + typeBadge;
+    if (ev.time) upHtml += '<span style="color:var(--text2);font-size:0.7rem;">\u23F0 ' + ev.time + '</span>';
+    if (ev.notes) upHtml += '<span style="color:var(--text2);font-size:0.7rem;">\u2014 ' + ev.notes + '</span>';
+    upHtml += '</div></div>';
+    if (diff <= 7) upHtml += '<div style="font-size:0.75rem;font-weight:600;color:' + (diff <= 1 ? 'var(--red)' : '#A78BFA') + ';white-space:nowrap;">J-' + diff + '</div>';
+    upHtml += '</div>';
+  }
+  if (!shown) upHtml = '<p style="color:var(--text2);text-align:center;padding:24px;">Aucun \u00e9v\u00e9nement \u00e0 venir. Mettez \u00e0 jour l\'onglet Calendrier R\u00e9sultats.</p>';
+  document.getElementById('erUpcoming').innerHTML = upHtml;
+
+  // Monthly timeline heatmap
+  var monthEvents = {};
+  for (var m = 0; m < 12; m++) monthEvents[m] = [];
+  for (var j = 0; j < events.length; j++) {
+    var ed = events[j]._d;
+    if (ed && ed.getFullYear() === thisYear) {
+      monthEvents[ed.getMonth()].push(events[j]);
+    }
+  }
+  var tlHtml = '<div style="display:grid;grid-template-columns:repeat(12,1fr);gap:6px;">';
+  for (var m = 0; m < 12; m++) {
+    var cnt = monthEvents[m].length;
+    var isPast = m < thisMonth;
+    var isCurrent = m === thisMonth;
+    var opacity = isPast ? '0.4' : '1';
+    var border = isCurrent ? 'border:2px solid var(--accent);' : 'border:1px solid var(--border);';
+    var bg = cnt === 0 ? 'var(--surface2)' : cnt <= 2 ? 'rgba(0,214,143,0.15)' : cnt <= 4 ? 'rgba(79,140,255,0.2)' : 'rgba(167,139,250,0.25)';
+    tlHtml += '<div style="' + border + 'background:' + bg + ';border-radius:8px;padding:8px 4px;text-align:center;opacity:' + opacity + ';cursor:default;" title="' + monthNames[m] + ': ' + cnt + ' \u00e9v\u00e9nements">';
+    tlHtml += '<div style="font-size:0.65rem;color:var(--text2);margin-bottom:4px;">' + monthNames[m].substring(0,3).toUpperCase() + '</div>';
+    tlHtml += '<div style="font-size:1.1rem;font-weight:700;color:var(--text1);">' + cnt + '</div>';
+    // Dots for companies
+    var dots = '';
+    for (var d = 0; d < Math.min(cnt, 5); d++) {
+      dots += '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin:1px;opacity:0.6;"></span>';
+    }
+    if (cnt > 5) dots += '<span style="font-size:0.55rem;color:var(--text2);">+' + (cnt-5) + '</span>';
+    tlHtml += '<div style="margin-top:4px;">' + dots + '</div>';
+    tlHtml += '</div>';
+  }
+  tlHtml += '</div>';
+  document.getElementById('erTimeline').innerHTML = tlHtml;
+
+  // Full table
+  var allSorted = past.concat(upcoming);
+  // Actually re-sort everything chronologically
+  allSorted.sort(function(a,b){ return a.date < b.date ? -1 : 1; });
+  var tHtml = '<thead><tr><th>Date</th><th>Soci\u00e9t\u00e9</th><th>Type</th><th>P\u00e9riode</th><th>Statut</th><th>Heure</th><th>Notes</th></tr></thead><tbody>';
+  for (var k = 0; k < allSorted.length; k++) {
+    var ev = allSorted[k];
+    var isPast = ev.date < todayStr;
+    var isToday = ev.date === todayStr;
+    var rowStyle = isPast ? 'opacity:0.45;' : '';
+    if (isToday) rowStyle = 'background:rgba(167,139,250,0.12);';
+
+    var statusBadge = '';
+    if (isPast) statusBadge = '<span style="background:rgba(255,255,255,0.06);color:var(--text2);padding:2px 8px;border-radius:6px;font-size:0.7rem;">PUBLI\u00c9</span>';
+    else if (isToday) statusBadge = '<span style="background:rgba(167,139,250,0.2);color:#A78BFA;padding:2px 8px;border-radius:6px;font-size:0.7rem;font-weight:600;">AUJOURD\'HUI</span>';
+    else statusBadge = '<span style="background:rgba(0,214,143,0.12);color:var(--green);padding:2px 8px;border-radius:6px;font-size:0.7rem;">\u00c0 VENIR</span>';
+
+    var ed = new Date(ev.date);
+    tHtml += '<tr style="' + rowStyle + '">'
+      + '<td>' + ed.toLocaleDateString('fr-FR') + '</td>'
+      + '<td style="font-weight:500;">' + ev.company + '</td>'
+      + '<td>' + (ev.type || '') + '</td>'
+      + '<td>' + (ev.period || '') + '</td>'
+      + '<td>' + statusBadge + '</td>'
+      + '<td style="color:var(--text2);font-size:0.78rem;">' + (ev.time || '') + '</td>'
+      + '<td style="color:var(--text2);font-size:0.78rem;">' + (ev.notes || '') + '</td>'
+      + '</tr>';
+  }
+  tHtml += '</tbody>';
+  document.getElementById('erTable').innerHTML = tHtml;
+}
+
+function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+
+function getDefaultEarningsCalendar() {
+  // Fallback data if Sheet tab not yet created
+  return [
+    {date:'2026-01-29',company:'STMicroelectronics',ticker:'EPA:STMPA',type:'R\u00e9sultats annuels',period:'T4+FY2025',time:'Avant bourse',notes:''},
+    {date:'2026-02-05',company:'BNP Paribas',ticker:'EPA:BNP',type:'R\u00e9sultats annuels',period:'T4+FY2025',time:'Avant bourse',notes:''},
+    {date:'2026-02-11',company:'TotalEnergies',ticker:'EPA:TTE',type:'R\u00e9sultats annuels',period:'T4+FY2025',time:'15h00',notes:''},
+    {date:'2026-02-11',company:'Rexel',ticker:'EPA:RXL',type:'R\u00e9sultats annuels',period:'FY2025',time:'Apr\u00e8s bourse',notes:''},
+    {date:'2026-02-18',company:'Orange',ticker:'EPA:ORA',type:'R\u00e9sultats annuels',period:'FY2025',time:'Apr\u00e8s bourse',notes:'CMD le 19/02'},
+    {date:'2026-02-18',company:'Covivio',ticker:'EPA:COV',type:'R\u00e9sultats annuels',period:'FY2025',time:'',notes:''},
+    {date:'2026-02-19',company:'GTT',ticker:'EPA:GTT',type:'R\u00e9sultats annuels',period:'FY2025',time:'8h30',notes:''},
+    {date:'2026-02-20',company:'Air Liquide',ticker:'EPA:AI',type:'R\u00e9sultats annuels',period:'FY2025',time:'11h00',notes:'Div 3.70\u20ac. Actions gratuites 1/10'},
+    {date:'2026-02-25',company:'Peugeot Invest',ticker:'EPA:PEUG',type:'R\u00e9sultats annuels',period:'FY2025',time:'',notes:''},
+    {date:'2026-02-26',company:'AXA',ticker:'EPA:CS',type:'R\u00e9sultats annuels',period:'FY2025',time:'6h45',notes:''},
+    {date:'2026-02-26',company:'Teleperformance',ticker:'EPA:TEP',type:'R\u00e9sultats annuels',period:'FY2025',time:'Apr\u00e8s bourse',notes:''},
+    {date:'2026-03-05',company:'bioM\u00e9rieux',ticker:'EPA:BIM',type:'R\u00e9sultats annuels',period:'FY2025',time:'',notes:'Date estim\u00e9e'},
+    {date:'2026-03-11',company:'Euronext',ticker:'AMS:ENX',type:'R\u00e9sultats annuels',period:'FY2025',time:'',notes:''},
+    {date:'2026-03-12',company:'Mersen',ticker:'EPA:MRN',type:'R\u00e9sultats annuels',period:'FY2025',time:'Apr\u00e8s bourse',notes:''},
+    {date:'2026-03-19',company:'Equasens',ticker:'EPA:EQS',type:'R\u00e9sultats annuels',period:'FY2025',time:'18h00',notes:''},
+    {date:'2026-03-25',company:'Carrefour',ticker:'EPA:CA',type:'R\u00e9sultats annuels',period:'FY2025',time:'',notes:'Plan 2026-2030'},
+    {date:'2026-03-26',company:'Compagnie des Alpes',ticker:'EPA:CDA',type:'CA trimestriel',period:'T1 FY25/26',time:'',notes:''},
+    {date:'2026-04-14',company:'TotalEnergies',ticker:'EPA:TTE',type:'Trading Statement',period:'T1 2026',time:'',notes:''},
+    {date:'2026-04-15',company:'LVMH',ticker:'EPA:MC',type:'CA trimestriel',period:'T1 2026',time:'Apr\u00e8s bourse',notes:''},
+    {date:'2026-04-22',company:'GTT',ticker:'EPA:GTT',type:'CA trimestriel',period:'T1 2026',time:'',notes:''},
+    {date:'2026-04-23',company:'Orange',ticker:'EPA:ORA',type:'R\u00e9sultats trimestriels',period:'T1 2026',time:'',notes:''},
+    {date:'2026-04-23',company:'Air Liquide',ticker:'EPA:AI',type:'CA trimestriel',period:'T1 2026',time:'',notes:''},
+    {date:'2026-04-24',company:'STMicroelectronics',ticker:'EPA:STMPA',type:'R\u00e9sultats trimestriels',period:'T1 2026',time:'Avant bourse',notes:''},
+    {date:'2026-04-29',company:'TotalEnergies',ticker:'EPA:TTE',type:'R\u00e9sultats trimestriels',period:'T1 2026',time:'15h00',notes:''},
+    {date:'2026-04-30',company:'BNP Paribas',ticker:'EPA:BNP',type:'R\u00e9sultats trimestriels',period:'T1 2026',time:'',notes:''},
+    {date:'2026-05-07',company:'AXA',ticker:'EPA:CS',type:'CA trimestriel',period:'T1 2026',time:'',notes:''},
+    {date:'2026-05-14',company:'Euronext',ticker:'AMS:ENX',type:'R\u00e9sultats trimestriels',period:'T1 2026',time:'',notes:''},
+    {date:'2026-05-26',company:'Rexel',ticker:'EPA:RXL',type:'CA trimestriel',period:'T1 2026',time:'',notes:''},
+    {date:'2026-06-11',company:'Equasens',ticker:'EPA:EQS',type:'CA trimestriel',period:'T1 2026',time:'18h00',notes:''},
+    {date:'2026-06-18',company:'Mersen',ticker:'EPA:MRN',type:'CA semestriel',period:'S1 2026',time:'',notes:''},
+    {date:'2026-06-25',company:'Compagnie des Alpes',ticker:'EPA:CDA',type:'R\u00e9sultats semestriels',period:'S1 FY25/26',time:'',notes:''},
+    {date:'2026-07-14',company:'LVMH',ticker:'EPA:MC',type:'CA semestriel',period:'S1 2026',time:'Apr\u00e8s bourse',notes:''},
+    {date:'2026-07-23',company:'STMicroelectronics',ticker:'EPA:STMPA',type:'R\u00e9sultats semestriels',period:'S1 2026',time:'',notes:''},
+    {date:'2026-07-24',company:'BNP Paribas',ticker:'EPA:BNP',type:'R\u00e9sultats semestriels',period:'S1 2026',time:'',notes:''},
+    {date:'2026-07-28',company:'Orange',ticker:'EPA:ORA',type:'R\u00e9sultats semestriels',period:'S1 2026',time:'',notes:''},
+    {date:'2026-07-29',company:'TotalEnergies',ticker:'EPA:TTE',type:'R\u00e9sultats semestriels',period:'S1 2026',time:'15h00',notes:''},
+    {date:'2026-07-29',company:'Air Liquide',ticker:'EPA:AI',type:'R\u00e9sultats semestriels',period:'S1 2026',time:'',notes:''},
+    {date:'2026-07-30',company:'AXA',ticker:'EPA:CS',type:'R\u00e9sultats semestriels',period:'S1 2026',time:'',notes:''},
+    {date:'2026-09-03',company:'Mersen',ticker:'EPA:MRN',type:'R\u00e9sultats semestriels',period:'S1 2026',time:'',notes:''},
+    {date:'2026-09-10',company:'Equasens',ticker:'EPA:EQS',type:'R\u00e9sultats semestriels',period:'S1 2026',time:'18h00',notes:''},
+    {date:'2026-09-17',company:'Rexel',ticker:'EPA:RXL',type:'R\u00e9sultats semestriels',period:'S1 2026',time:'',notes:''},
+    {date:'2026-10-13',company:'LVMH',ticker:'EPA:MC',type:'CA trimestriel',period:'T3 2026',time:'Apr\u00e8s bourse',notes:''},
+    {date:'2026-10-22',company:'Euronext',ticker:'AMS:ENX',type:'R\u00e9sultats trimestriels',period:'T3 2026',time:'',notes:''},
+    {date:'2026-10-27',company:'Orange',ticker:'EPA:ORA',type:'R\u00e9sultats trimestriels',period:'T3 2026',time:'',notes:''},
+    {date:'2026-10-28',company:'TotalEnergies',ticker:'EPA:TTE',type:'R\u00e9sultats trimestriels',period:'T3 2026',time:'15h00',notes:''},
+    {date:'2026-10-29',company:'STMicroelectronics',ticker:'EPA:STMPA',type:'R\u00e9sultats trimestriels',period:'T3 2026',time:'',notes:''},
+    {date:'2026-10-29',company:'Air Liquide',ticker:'EPA:AI',type:'CA trimestriel',period:'T3 2026',time:'',notes:''},
+    {date:'2026-10-30',company:'BNP Paribas',ticker:'EPA:BNP',type:'R\u00e9sultats trimestriels',period:'T3 2026',time:'',notes:''},
+    {date:'2026-11-05',company:'AXA',ticker:'EPA:CS',type:'CA trimestriel',period:'9M 2026',time:'',notes:''},
+    {date:'2026-11-05',company:'GTT',ticker:'EPA:GTT',type:'CA trimestriel',period:'9M 2026',time:'',notes:''},
+    {date:'2026-11-19',company:'Rexel',ticker:'EPA:RXL',type:'CA trimestriel',period:'T3 2026',time:'',notes:''},
+    {date:'2026-11-25',company:'Teleperformance',ticker:'EPA:TEP',type:'CA trimestriel',period:'T3 2026',time:'',notes:''},
+    {date:'2026-12-10',company:'Equasens',ticker:'EPA:EQS',type:'CA trimestriel',period:'T3 2026',time:'18h00',notes:''},
+    {date:'2026-12-17',company:'Mersen',ticker:'EPA:MRN',type:'CA annuel',period:'FY 2026',time:'',notes:''}
+  ];
+}
+
 function renderTransactions(data) {
   var h = data.holdings;
   var tx = data.transactions;
